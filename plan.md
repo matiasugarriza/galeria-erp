@@ -4,7 +4,7 @@
 
 | Feature | Spec | Estado del spec |
 | :--- | :--- | :--- |
-| Visualización de la Galería (`gallery-view`) | [`specs/001-gallery-view/spec.md`](specs/001-gallery-view/spec.md) | Propuesta |
+| Visualización de la Galería (`gallery-view`) | [`specs/001-gallery-view/spec.md`](specs/001-gallery-view/spec.md) | ✅ Implementada (rama `feature/001-gallery-view`) |
 | Subida de Imágenes (`image-upload`) | [`specs/002-image-upload/spec.md`](specs/002-image-upload/spec.md) | Propuesta |
 | Filtrado y Búsqueda (`image-filter`) | [`specs/003-image-filter/spec.md`](specs/003-image-filter/spec.md) | Propuesta |
 | Integración ERP (`erp-integration`) | [`specs/004-erp-integration/spec.md`](specs/004-erp-integration/spec.md) | Propuesta |
