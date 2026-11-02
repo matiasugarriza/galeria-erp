@@ -1,7 +1,7 @@
 # Feature 1: Visualización de la Galería de Imágenes (`gallery-view`)
 
 **ID de feature:** `gallery-view`
-**Estado:** Propuesta
+**Estado:** ✅ Implementada (rama `feature/001-gallery-view`, commit `3092712`; assess: medium/under_budget)
 **Dependencias:** ninguna (feature base de la galería)
 
 ---
