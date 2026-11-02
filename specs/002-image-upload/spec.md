@@ -1,7 +1,7 @@
 # Feature 2: Subida de Nuevas Imágenes (`image-upload`)
 
 **ID de feature:** `image-upload`
-**Estado:** Propuesta
+**Estado:** ✅ Implementada (rama `feature/002-image-upload`; 15/15 tests en verde)
 **Dependencias:** [`001-gallery-view`](../001-gallery-view/spec.md) (la grilla que debe actualizarse)
 
 ---

@@ -27,6 +27,9 @@ export interface GalleryFilterState {
   filterTag?: string
 }
 
+/** Errores de validación y subida del UploadModal (spec 002). */
+export type UploadErrorKind = 'format' | 'size' | 'network'
+
 /** Props dual-mode del componente raíz (contrato del plugin ERP — plan.md). */
 export interface ImageGalleryProps {
   /** Filtra por carpeta de contexto ERP al momento de listar. */

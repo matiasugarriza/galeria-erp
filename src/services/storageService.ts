@@ -4,6 +4,7 @@ import {
   getStorage,
   listAll,
   ref,
+  uploadBytesResumable,
   type FirebaseStorage,
 } from 'firebase/storage'
 import { getFirebaseApp } from '../config/firebase'
@@ -11,6 +12,39 @@ import type { ImageItem } from '../types/gallery'
 
 function storageInstance(): FirebaseStorage {
   return getStorage(getFirebaseApp())
+}
+
+/**
+ * Sube un archivo con progreso reportado como porcentaje 0–100 (spec 002, FR-2).
+ * La normalización del archivo (feature 006) la ejecuta el procesamiento en
+ * servidor vía Cloud Function `onFinalize`; el componente solo sube y refresca.
+ */
+export async function uploadImage(
+  file: File,
+  folder: string | undefined,
+  onProgress: (percent: number) => void,
+): Promise<string> {
+  const storage = storageInstance()
+  const targetRef = ref(storage, folder ? `${folder}/${file.name}` : file.name)
+  const task = uploadBytesResumable(targetRef, file)
+
+  return new Promise<string>((resolve, reject) => {
+    task.on(
+      'state_changed',
+      (snapshot) => {
+        const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+        onProgress(percent)
+      },
+      reject,
+      async () => {
+        try {
+          resolve(await getDownloadURL(task.snapshot.ref))
+        } catch (error) {
+          reject(error)
+        }
+      },
+    )
+  })
 }
 
 /**
