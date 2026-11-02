@@ -1,7 +1,7 @@
 # Feature 3: Filtrado y Búsqueda (`image-filter`)
 
 **ID de feature:** `image-filter`
-**Estado:** Propuesta
+**Estado:** ✅ Implementada (rama `feature/003-image-filter`; 21/21 tests en verde)
 **Dependencias:** [`001-gallery-view`](../001-gallery-view/spec.md) (la grilla filtrable)
 
 ---

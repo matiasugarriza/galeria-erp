@@ -29,6 +29,15 @@ const secondItem: ImageItem = {
   tag: 'productos',
 }
 
+const accentItem: ImageItem = {
+  id: 'productos/AÑO-2026.jpg',
+  name: 'AÑO-2026.jpg',
+  url: 'https://example.com/ano-2026.jpg',
+  fullPath: 'productos/AÑO-2026.jpg',
+  createdAt: '2026-11-01T10:00:00Z',
+  tag: 'productos',
+}
+
 describe('ImageGallery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -99,5 +108,36 @@ describe('ImageGallery', () => {
 
     expect(await screen.findByRole('img', { name: 'nueva.jpg' })).toBeTruthy()
     await waitFor(() => expect(listImagesMock).toHaveBeenCalledTimes(2))
+  })
+
+  it('filtra la grilla en tiempo real según el texto de búsqueda, sin distinguir mayúsculas ni acentos (AC1, FR-1 de la spec 003)', async () => {
+    listImagesMock.mockResolvedValue([item, secondItem, accentItem])
+    render(<ImageGallery />)
+    await screen.findByRole('img', { name: 'CH-001.jpg' })
+
+    const search = screen.getByLabelText('Buscar imágenes')
+
+    fireEvent.change(search, { target: { value: 'ch-001' } })
+    expect(screen.getByRole('img', { name: 'CH-001.jpg' })).toBeTruthy()
+    expect(screen.queryByRole('img', { name: 'nueva.jpg' })).toBeNull()
+
+    fireEvent.change(search, { target: { value: 'ano-2026' } })
+    expect(screen.getByRole('img', { name: 'AÑO-2026.jpg' })).toBeTruthy()
+    expect(screen.queryByRole('img', { name: 'CH-001.jpg' })).toBeNull()
+
+    fireEvent.change(search, { target: { value: '' } })
+    expect(screen.getByRole('img', { name: 'CH-001.jpg' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'nueva.jpg' })).toBeTruthy()
+  })
+
+  it('muestra un aviso cuando la búsqueda no tiene coincidencias (AC1 de la spec 003)', async () => {
+    listImagesMock.mockResolvedValue([item])
+    render(<ImageGallery />)
+    await screen.findByRole('img', { name: 'CH-001.jpg' })
+
+    fireEvent.change(screen.getByLabelText('Buscar imágenes'), { target: { value: 'zzz' } })
+
+    expect(screen.queryByRole('img', { name: 'CH-001.jpg' })).toBeNull()
+    expect(screen.getByText(/no se encontraron imágenes/i)).toBeTruthy()
   })
 })

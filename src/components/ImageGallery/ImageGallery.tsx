@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, ImageOff, Upload } from 'lucide-react'
+import { AlertTriangle, ImageOff, Search, Upload } from 'lucide-react'
 import { listImages } from '../../services/storageService'
 import type { ImageGalleryProps, ImageItem } from '../../types/gallery'
 import { GalleryGrid } from './GalleryGrid'
+import { matchesSearch } from './searchUtils'
 import { UploadModal } from './UploadModal'
 
 type GalleryState =
@@ -14,6 +15,7 @@ type GalleryState =
 export function ImageGallery({ filterTag, readOnly = false }: ImageGalleryProps) {
   const [state, setState] = useState<GalleryState>({ status: 'loading' })
   const [isUploadOpen, setIsUploadOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
   // Refresco silencioso tras una subida: la grilla se actualiza sola (spec 002, FR-3).
   const refresh = useCallback(async () => {
@@ -29,6 +31,8 @@ export function ImageGallery({ filterTag, readOnly = false }: ImageGalleryProps)
   useEffect(() => {
     let cancelled = false
     setState({ status: 'loading' })
+    // Al cambiar de contexto ERP (filterTag) se limpia la búsqueda activa.
+    setSearchTerm('')
 
     listImages(filterTag)
       .then((items) => {
@@ -76,22 +80,41 @@ export function ImageGallery({ filterTag, readOnly = false }: ImageGalleryProps)
   }
 
   const isEmpty = state.items.length === 0
+  const visibleItems = state.items.filter((item) => matchesSearch(item.name, searchTerm))
   const uploadButtonClass =
     'inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500'
 
   return (
     <div>
-      {!isEmpty && !readOnly && (
-        <div className="mb-4 flex justify-end">
-          <button
-            type="button"
-            aria-label="Subir imagen"
-            onClick={() => setIsUploadOpen(true)}
-            className={uploadButtonClass}
-          >
-            <Upload aria-hidden="true" className="size-4" />
-            Subir Imagen
-          </button>
+      {!isEmpty && (
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative w-full sm:max-w-xs">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="search"
+              aria-label="Buscar imágenes"
+              placeholder="Buscar por nombre…"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+            />
+          </div>
+          {!readOnly && (
+            <div className="sm:ml-auto">
+              <button
+                type="button"
+                aria-label="Subir imagen"
+                onClick={() => setIsUploadOpen(true)}
+                className={uploadButtonClass}
+              >
+                <Upload aria-hidden="true" className="size-4" />
+                Subir Imagen
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -111,8 +134,12 @@ export function ImageGallery({ filterTag, readOnly = false }: ImageGalleryProps)
             </button>
           )}
         </div>
+      ) : visibleItems.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
+          No se encontraron imágenes que coincidan con “{searchTerm}”.
+        </p>
       ) : (
-        <GalleryGrid items={state.items} />
+        <GalleryGrid items={visibleItems} />
       )}
 
       <UploadModal
