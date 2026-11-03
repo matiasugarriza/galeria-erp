@@ -1,7 +1,7 @@
 # Feature 6: Procesamiento y Formato de Imágenes (`image-pipeline`)
 
 **ID de feature:** `image-pipeline`
-**Estado:** Propuesta (aplicado por el proceso batch de migración y por el procesamiento en servidor de subidas nuevas)
+**Estado:** ✅ Implementada en `functions/` (rama `feature/006-image-pipeline`; 26/26 tests pytest en verde). Despliegue de la Cloud Function pendiente (T010, requiere plan Blaze)
 **Dependencias:** ninguna (reglas transversales que gobiernan el contenido del bucket)
 
 ---

@@ -28,3 +28,8 @@ npm-debug.log*
 
 # Cobertura de pruebas
 coverage/
+
+# Python (backend functions/ — spec 006)
+__pycache__/
+*.pyc
+.pytest_cache/

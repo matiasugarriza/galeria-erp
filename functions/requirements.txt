@@ -1,0 +1,8 @@
+# Backend de la spec 006 (image-pipeline) — Cloud Function runtime Python.
+functions-framework>=4.0
+google-cloud-storage>=2.14
+Pillow>=11.0
+# FR-6: conversión de HEIC/HEIF
+pillow-heif>=0.18
+# FR-11 (opcional): detección con IA — instalar con `pip install "rembg[cpu]"`
+# y definir la variable de entorno USAR_REMBG=true en la función.

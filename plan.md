@@ -9,7 +9,7 @@
 | Filtrado y Búsqueda (`image-filter`) | [`specs/003-image-filter/spec.md`](specs/003-image-filter/spec.md) | ✅ Implementada (rama `feature/003-image-filter`) |
 | Integración ERP (`erp-integration`) | [`specs/004-erp-integration/spec.md`](specs/004-erp-integration/spec.md) | ✅ Implementada (rama `feature/004-erp-integration`) |
 | Eliminación de Archivos (`image-deletion`) | [`specs/005-image-deletion/spec.md`](specs/005-image-deletion/spec.md) | ✅ Implementada (rama `feature/005-image-deletion`) |
-| Procesamiento y Formato de Imágenes (`image-pipeline`) | [`specs/006-image-pipeline/spec.md`](specs/006-image-pipeline/spec.md) | Propuesta (batch + procesamiento en servidor) |
+| Procesamiento y Formato de Imágenes (`image-pipeline`) | [`specs/006-image-pipeline/spec.md`](specs/006-image-pipeline/spec.md) | ✅ Implementada en `functions/` (rama `feature/006-image-pipeline`); despliegue pendiente (T010) |
 
 ---
 
