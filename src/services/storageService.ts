@@ -1,4 +1,5 @@
 import {
+  deleteObject,
   getDownloadURL,
   getMetadata,
   getStorage,
@@ -12,6 +13,11 @@ import type { ImageItem } from '../types/gallery'
 
 function storageInstance(): FirebaseStorage {
   return getStorage(getFirebaseApp())
+}
+
+/** Elimina un objeto del bucket por su fullPath (spec 005, FR-2). Lanza en caso de permiso denegado o archivo inexistente. */
+export async function deleteImage(fullPath: string): Promise<void> {
+  await deleteObject(ref(storageInstance(), fullPath))
 }
 
 /**

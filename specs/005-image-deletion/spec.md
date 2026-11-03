@@ -1,7 +1,7 @@
 # Feature 5: Eliminación de Archivos (`image-deletion`)
 
 **ID de feature:** `image-deletion`
-**Estado:** Propuesta
+**Estado:** ✅ Implementada (rama `feature/005-image-deletion`; 25/25 tests en verde)
 **Dependencias:** [`001-gallery-view`](../001-gallery-view/spec.md) (las miniaturas eliminables)
 
 ---

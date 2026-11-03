@@ -1,15 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { listImages, uploadImage } from '../../services/storageService'
+import { deleteImage, listImages, uploadImage } from '../../services/storageService'
 import type { ImageItem } from '../../types/gallery'
 import { ImageGallery } from './ImageGallery'
 
 vi.mock('../../services/storageService', () => ({
   listImages: vi.fn(),
   uploadImage: vi.fn(),
+  deleteImage: vi.fn(),
 }))
 
 const listImagesMock = vi.mocked(listImages)
 const uploadImageMock = vi.mocked(uploadImage)
+const deleteImageMock = vi.mocked(deleteImage)
 
 const item: ImageItem = {
   id: 'productos/CH-001.jpg',
@@ -85,6 +87,7 @@ describe('ImageGallery', () => {
     const { unmount } = render(<ImageGallery readOnly />)
     await screen.findByRole('img', { name: 'CH-001.jpg' })
     expect(screen.queryByRole('button', { name: /subir imagen/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^eliminar /i })).toBeNull()
     unmount()
 
     listImagesMock.mockResolvedValue([])
@@ -139,5 +142,55 @@ describe('ImageGallery', () => {
 
     expect(screen.queryByRole('img', { name: 'CH-001.jpg' })).toBeNull()
     expect(screen.getByText(/no se encontraron imágenes/i)).toBeTruthy()
+  })
+
+  it('no ejecuta la eliminación sin confirmación en el modal de diálogo (AC1 de la spec 005)', async () => {
+    listImagesMock.mockResolvedValue([item])
+    render(<ImageGallery />)
+    await screen.findByRole('img', { name: 'CH-001.jpg' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar CH-001.jpg' }))
+    await screen.findByRole('dialog', { name: 'Confirmar eliminación' })
+
+    expect(deleteImageMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(deleteImageMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('img', { name: 'CH-001.jpg' })).toBeTruthy()
+  })
+
+  it('elimina el archivo, remueve la miniatura de inmediato y notifica onDeleteImage al confirmar (AC1, FR-2, FR-3 de la spec 005)', async () => {
+    listImagesMock.mockResolvedValue([item, secondItem])
+    deleteImageMock.mockResolvedValue()
+    const onDeleteImage = vi.fn()
+    render(<ImageGallery onDeleteImage={onDeleteImage} />)
+    await screen.findByRole('img', { name: 'CH-001.jpg' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar CH-001.jpg' }))
+    await screen.findByRole('dialog', { name: 'Confirmar eliminación' })
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }))
+
+    await waitFor(() => expect(deleteImageMock).toHaveBeenCalledWith('productos/CH-001.jpg'))
+    await waitFor(() => expect(onDeleteImage).toHaveBeenCalledWith('productos/CH-001.jpg'))
+    expect(screen.queryByRole('img', { name: 'CH-001.jpg' })).toBeNull()
+    expect(screen.getByRole('img', { name: 'nueva.jpg' })).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('muestra el error de eliminación visible y conserva la miniatura cuando deleteObject falla (T007, Cláusula III)', async () => {
+    listImagesMock.mockResolvedValue([item])
+    deleteImageMock.mockRejectedValue(new Error('permiso denegado'))
+    render(<ImageGallery />)
+    await screen.findByRole('img', { name: 'CH-001.jpg' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar CH-001.jpg' }))
+    await screen.findByRole('dialog', { name: 'Confirmar eliminación' })
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toMatch(/permiso denegado/i)
+    expect(screen.getByRole('img', { name: 'CH-001.jpg' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Confirmar eliminación' })).toBeTruthy()
   })
 })

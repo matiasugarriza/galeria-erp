@@ -47,4 +47,16 @@ describe('GalleryGrid', () => {
     expect(onSelect).toHaveBeenCalledTimes(1)
     expect(onSelect).toHaveBeenCalledWith(items[0])
   })
+
+  it('muestra el botón de eliminar solo cuando se pasa onDelete (spec 005)', () => {
+    const { rerender } = render(<GalleryGrid items={items} />)
+    expect(screen.queryByRole('button', { name: 'Eliminar CH-001.jpg' })).toBeNull()
+
+    const onDelete = vi.fn()
+    rerender(<GalleryGrid items={items} onDelete={onDelete} />)
+    screen.getByRole('button', { name: 'Eliminar CH-001.jpg' }).click()
+
+    expect(onDelete).toHaveBeenCalledTimes(1)
+    expect(onDelete).toHaveBeenCalledWith(items[0])
+  })
 })

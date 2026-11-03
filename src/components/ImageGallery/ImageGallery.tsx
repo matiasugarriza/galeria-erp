@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, ImageOff, Search, Upload } from 'lucide-react'
-import { listImages } from '../../services/storageService'
+import { deleteImage, listImages } from '../../services/storageService'
 import type { ImageGalleryProps, ImageItem } from '../../types/gallery'
+import { ConfirmDialog } from './ConfirmDialog'
 import { GalleryGrid } from './GalleryGrid'
 import { matchesSearch } from './searchUtils'
 import { UploadModal } from './UploadModal'
@@ -11,11 +12,14 @@ type GalleryState =
   | { status: 'ready'; items: ImageItem[] }
   | { status: 'error'; message: string }
 
-/** Componente raíz: orquesta la carga desde Firebase Storage, los estados de la vista y la subida (specs 001, 002 y 003). */
-export function ImageGallery({ filterTag, readOnly = false }: ImageGalleryProps) {
+/** Componente raíz: orquesta la carga desde Firebase Storage, los estados de la vista, la subida y la eliminación (specs 001, 002, 003 y 005). */
+export function ImageGallery({ filterTag, readOnly = false, onDeleteImage }: ImageGalleryProps) {
   const [state, setState] = useState<GalleryState>({ status: 'loading' })
   const [isUploadOpen, setIsUploadOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [pendingDelete, setPendingDelete] = useState<ImageItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   // Refresco silencioso tras una subida: la grilla se actualiza sola (spec 002, FR-3).
   const refresh = useCallback(async () => {
@@ -49,6 +53,29 @@ export function ImageGallery({ filterTag, readOnly = false }: ImageGalleryProps)
       cancelled = true
     }
   }, [filterTag])
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete || deleting) return
+    const target = pendingDelete
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteImage(target.fullPath)
+      // Remoción inmediata de la miniatura sin refetch (spec 005, FR-3).
+      setState((previous) =>
+        previous.status === 'ready'
+          ? { status: 'ready', items: previous.items.filter((entry) => entry.id !== target.id) }
+          : previous,
+      )
+      onDeleteImage?.(target.id)
+      setPendingDelete(null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error desconocido'
+      setDeleteError(`No se pudo eliminar la imagen: ${message}`)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   if (state.status === 'loading') {
     return (
@@ -139,7 +166,17 @@ export function ImageGallery({ filterTag, readOnly = false }: ImageGalleryProps)
           No se encontraron imágenes que coincidan con “{searchTerm}”.
         </p>
       ) : (
-        <GalleryGrid items={visibleItems} />
+        <GalleryGrid
+          items={visibleItems}
+          onDelete={
+            readOnly
+              ? undefined
+              : (target) => {
+                  setDeleteError(null)
+                  setPendingDelete(target)
+                }
+          }
+        />
       )}
 
       <UploadModal
@@ -147,6 +184,19 @@ export function ImageGallery({ filterTag, readOnly = false }: ImageGalleryProps)
         onClose={() => setIsUploadOpen(false)}
         filterTag={filterTag}
         onUploaded={() => void refresh()}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        message={`¿Eliminar “${pendingDelete?.name ?? ''}”? Esta acción no se puede deshacer.`}
+        confirming={deleting}
+        error={deleteError}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => {
+          if (deleting) return
+          setPendingDelete(null)
+          setDeleteError(null)
+        }}
       />
     </div>
   )

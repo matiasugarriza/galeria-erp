@@ -1,19 +1,22 @@
+import { Trash2 } from 'lucide-react'
 import type { ImageItem } from '../../types/gallery'
 
 interface GalleryGridProps {
   items: ImageItem[]
   /** Se ejecuta al hacer clic en una miniatura (feature 004: onSelectImage). */
   onSelect?: (item: ImageItem) => void
+  /** Presente solo con permisos de edición; renderiza el botón de eliminar (spec 005). */
+  onDelete?: (item: ImageItem) => void
 }
 
 const dateFormatter = new Intl.DateTimeFormat('es-AR', { dateStyle: 'medium' })
 
 /** Grilla responsiva mobile-first: 1 col en móvil hasta 5 cols en pantallas grandes. */
-export function GalleryGrid({ items, onSelect }: GalleryGridProps) {
+export function GalleryGrid({ items, onSelect, onDelete }: GalleryGridProps) {
   return (
     <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {items.map((item) => (
-        <li key={item.id}>
+        <li key={item.id} className="relative">
           <button
             type="button"
             onClick={() => onSelect?.(item)}
@@ -29,6 +32,17 @@ export function GalleryGrid({ items, onSelect }: GalleryGridProps) {
             <p className="mt-2 truncate text-sm font-medium text-gray-800">{item.name}</p>
             <p className="text-xs text-gray-500">{dateFormatter.format(new Date(item.createdAt))}</p>
           </button>
+
+          {onDelete && (
+            <button
+              type="button"
+              aria-label={`Eliminar ${item.name}`}
+              onClick={() => onDelete(item)}
+              className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-red-600 shadow-sm transition-colors duration-200 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+            >
+              <Trash2 aria-hidden="true" className="size-4" />
+            </button>
+          )}
         </li>
       ))}
     </ul>
