@@ -13,7 +13,13 @@ type GalleryState =
   | { status: 'error'; message: string }
 
 /** Componente raíz: orquesta la carga desde Firebase Storage, los estados de la vista, la subida y la eliminación (specs 001, 002, 003 y 005). */
-export function ImageGallery({ filterTag, readOnly = false, onDeleteImage }: ImageGalleryProps) {
+export function ImageGallery({
+  filterTag,
+  readOnly = false,
+  onDeleteImage,
+  onSelectImage,
+  onUploadSuccess,
+}: ImageGalleryProps) {
   const [state, setState] = useState<GalleryState>({ status: 'loading' })
   const [isUploadOpen, setIsUploadOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -168,6 +174,7 @@ export function ImageGallery({ filterTag, readOnly = false, onDeleteImage }: Ima
       ) : (
         <GalleryGrid
           items={visibleItems}
+          onSelect={onSelectImage}
           onDelete={
             readOnly
               ? undefined
@@ -183,7 +190,10 @@ export function ImageGallery({ filterTag, readOnly = false, onDeleteImage }: Ima
         open={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
         filterTag={filterTag}
-        onUploaded={() => void refresh()}
+        onUploaded={(url) => {
+          void refresh()
+          onUploadSuccess?.(url)
+        }}
       />
 
       <ConfirmDialog

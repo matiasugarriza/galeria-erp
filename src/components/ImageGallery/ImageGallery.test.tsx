@@ -193,4 +193,41 @@ describe('ImageGallery', () => {
     expect(screen.getByRole('img', { name: 'CH-001.jpg' })).toBeTruthy()
     expect(screen.getByRole('dialog', { name: 'Confirmar eliminación' })).toBeTruthy()
   })
+
+  it('ejecuta onSelectImage con el ImageItem completo al seleccionar una miniatura (FR-1 de la spec 004)', async () => {
+    listImagesMock.mockResolvedValue([item])
+    const onSelectImage = vi.fn()
+    render(<ImageGallery onSelectImage={onSelectImage} />)
+    await screen.findByRole('img', { name: 'CH-001.jpg' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar imagen CH-001.jpg' }))
+
+    expect(onSelectImage).toHaveBeenCalledTimes(1)
+    expect(onSelectImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'productos/CH-001.jpg',
+        name: 'CH-001.jpg',
+        url: 'https://example.com/ch-001.jpg',
+        fullPath: 'productos/CH-001.jpg',
+      }),
+    )
+  })
+
+  it('invoca onUploadSuccess con la URL pública de la imagen recién subida (FR-6 de la spec 004)', async () => {
+    listImagesMock.mockResolvedValue([item])
+    uploadImageMock.mockResolvedValue('https://example.com/recien-subida.jpg')
+    const onUploadSuccess = vi.fn()
+    render(<ImageGallery onUploadSuccess={onUploadSuccess} />)
+    await screen.findByRole('img', { name: 'CH-001.jpg' })
+
+    fireEvent.click(screen.getByRole('button', { name: /subir imagen/i }))
+    await screen.findByRole('dialog')
+    fireEvent.change(screen.getByLabelText('Seleccionar archivo de imagen'), {
+      target: { files: [new File(['x'], 'nueva.jpg', { type: 'image/jpeg' })] },
+    })
+
+    await waitFor(() =>
+      expect(onUploadSuccess).toHaveBeenCalledWith('https://example.com/recien-subida.jpg'),
+    )
+  })
 })

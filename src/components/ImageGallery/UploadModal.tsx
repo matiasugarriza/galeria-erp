@@ -17,8 +17,8 @@ interface UploadModalProps {
   onClose: () => void
   /** Carpeta de contexto ERP a la que se sube el archivo (filterTag). */
   filterTag?: string
-  /** Se invoca tras subir exitosamente; la galería refresca la lista (FR-6). */
-  onUploaded: () => void
+  /** Se invoca tras subir exitosamente con la URL pública de la imagen (FR-6, spec 004). */
+  onUploaded: (url: string) => void
 }
 
 /** Modal de subida: zona drag & drop + selección, validación de formato/tamaño y barra de progreso (spec 002). */
@@ -47,8 +47,8 @@ export function UploadModal({ open, onClose, filterTag, onUploaded }: UploadModa
     setUploading(true)
     setProgress(0)
     try {
-      await uploadImage(file, filterTag, setProgress)
-      onUploaded()
+      const url = await uploadImage(file, filterTag, setProgress)
+      onUploaded(url)
       onClose()
     } catch {
       setError('network')

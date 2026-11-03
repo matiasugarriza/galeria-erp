@@ -1,7 +1,7 @@
 # Feature 4: Integración como Complemento de ERP (`erp-integration`)
 
 **ID de feature:** `erp-integration`
-**Estado:** Propuesta
+**Estado:** ✅ Implementada (rama `feature/004-erp-integration`; 28/28 tests en verde)
 **Dependencias:** [`001-gallery-view`](../001-gallery-view/spec.md), [`002-image-upload`](../002-image-upload/spec.md) y [`005-image-deletion`](../005-image-deletion/spec.md) (los controles que el modo lectura debe ocultar)
 
 ---
