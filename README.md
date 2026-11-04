@@ -180,4 +180,5 @@ Flujo: subida → evento `onFinalize` → `ya_procesado` (FR-25) → recorte/lie
 - [`AGENTS.md`](./AGENTS.md) — reglas técnicas y arquitectura para agentes
 - [`orchestration.md`](./orchestration.md) — flujo de trabajo y subagentes
 - [`plan.md`](./plan.md) — plan de implementación
+- [`.specify/memory/constitution.md`](./.specify/memory/constitution.md) — constitución del proyecto
 - `specs/NNN-*/spec.md` y sus `tasks.md` — cada feature sigue el ciclo SpecKit completo
