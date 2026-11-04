@@ -6,9 +6,12 @@ Cubren dos contratos:
 2. La lógica de pegamento del handler: anti-reprocesamiento FR-25 (en el
    evento y en el blob) y subida de la salida con ``pipeline=done``.
 
-Los fakes espejan la API REAL de google-cloud-storage 3.x (``Blob.metadata``,
-``upload_from_string`` sin kwarg de metadatos, ``Bucket.get_blob``) para que
-una API imaginaria falle en estos tests y no en produccion.
+Los fakes espejan la API REAL de google-cloud-storage 3.x: ``Blob.metadata``
+(sin ``custom_metadata``), ``upload_from_string`` sin kwarg de metadatos,
+``Bucket.get_blob`` que devuelve el objeto ya cargado o None, y
+``bucket.blob()`` que devuelve un objeto local SIN propiedades cargadas
+(``metadata`` en None) el cual solo se materializa al subir. Así una API
+imaginaria falla en estos tests y no en produccion.
 """
 from __future__ import annotations
 
@@ -58,35 +61,64 @@ def _evento(
 
 
 class _Blob:
-    def __init__(self, name: str, data: bytes = b"", metadata=None) -> None:
+    def __init__(
+        self,
+        name: str,
+        data: bytes = b"",
+        metadata=None,
+        loaded: bool = True,
+        bucket: "_Bucket | None" = None,
+    ) -> None:
         self.name = name
         self._data = data
-        self.metadata = dict(metadata) if metadata else {}
         self.upload = None
         self.deleted = False
+        self._bucket = bucket
+        # API real: un objeto local (bucket.blob()) trae metadata en None
+        # hasta reload; get_blob() lo devuelve ya cargado.
+        if not loaded:
+            self.metadata = None
+        elif metadata is not None:
+            self.metadata = dict(metadata)
+        else:
+            self.metadata = {}
 
     def download_as_bytes(self) -> bytes:
+        # API real: la descarga va por nombre y funciona desde cualquier
+        # objeto con nombre, cargado o local.
+        if self._bucket is not None:
+            almacenado = self._bucket.blobs.get(self.name)
+            if almacenado is not None:
+                return almacenado._data
         return self._data
 
     def upload_from_string(self, data, content_type=None) -> None:
         # Firma real: sin kwarg de metadatos (se setea blob.metadata antes).
         self.upload = (data, content_type)
+        self._data = data
+        if self._bucket is not None:
+            # API real: el upload crea/materializa el objeto en el bucket.
+            self._bucket.blobs[self.name] = self
 
     def delete(self) -> None:
         self.deleted = True
+        if self._bucket is not None:
+            self._bucket.blobs.pop(self.name, None)
 
 
 class _Bucket:
     def __init__(self, blobs=None) -> None:
         self.blobs = dict(blobs or {})
+        for almacenado in self.blobs.values():
+            almacenado._bucket = self
 
     def blob(self, name: str) -> _Blob:
-        if name not in self.blobs:
-            self.blobs[name] = _Blob(name)
-        return self.blobs[name]
+        # API real: objeto LOCAL nuevo, sin propiedades cargadas; no existe
+        # en el bucket hasta que se sube.
+        return _Blob(name, loaded=False, bucket=self)
 
     def get_blob(self, name: str):
-        # API real: devuelve None si el objeto no existe.
+        # API real: devuelve el objeto ya cargado o None si no existe.
         return self.blobs.get(name)
 
     def list_blobs(self):
@@ -141,6 +173,11 @@ def test_handler_omite_salida_marcada_en_el_blob(monkeypatch):
     marcado = _Blob("migradas/foto.jpg", data=b"x", metadata={"pipeline": "done"})
     bucket = _Bucket({"migradas/foto.jpg": marcado})
     monkeypatch.setattr(main.gcs, "Client", lambda: _Client(bucket))
+
+    def _no_debe_procesar(_datos: bytes) -> bytes:
+        raise AssertionError("una salida marcada no debe reprocesarse")
+
+    monkeypatch.setattr(main, "procesar_imagen", _no_debe_procesar)
 
     main.procesar_subida(_evento("migradas/foto.jpg"))
 
