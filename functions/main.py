@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 
-import functions_framework
+from firebase_functions import storage_fn
 from google.cloud import storage as gcs
 
 from naming import calcular_destino
@@ -18,24 +18,32 @@ from pipeline import MIME_SALIDA, procesar_imagen, ya_procesado
 
 logger = logging.getLogger(__name__)
 
+# StorageOptions exige nombre de bucket explicito durante el discovery:
+# FIREBASE_CONFIG no esta garantizado ahi (options.py:902-912).
+BUCKET = "migrador-drive-storage.firebasestorage.app"
 
-@functions_framework.cloud_event
-def procesar_subida(cloud_event) -> None:
-    datos = cloud_event.data
-    nombre: str = datos["name"]
-    bucket_name: str = datos["bucket"]
+
+@storage_fn.on_object_finalized(bucket=BUCKET)
+def procesar_subida(event) -> None:
+    datos = event.data
+    nombre: str = datos.name
+    bucket_name: str = datos.bucket
 
     # FR-25: la propia salida no se reprocesa (metadatos del evento).
-    if ya_procesado(datos.get("metadata")):
+    if ya_procesado(datos.metadata):
         logger.info("Salida ya procesada, se omite: %s", nombre)
         return
 
     cliente = gcs.Client()
     bucket = cliente.bucket(bucket_name)
-    blob = bucket.blob(nombre)
 
-    # Doble verificación con los metadatos reales del objeto.
-    if ya_procesado(blob.custom_metadata):
+    # Doble verificación con los metadatos reales del objeto. get_blob trae
+    # las propiedades cargadas; bucket.blob() crea solo un objeto local.
+    blob = bucket.get_blob(nombre)
+    if blob is None:
+        logger.info("El objeto desaparecio antes de procesar: %s", nombre)
+        return
+    if ya_procesado(blob.metadata):
         logger.info("Salida ya procesada (blob), se omite: %s", nombre)
         return
 
@@ -49,11 +57,10 @@ def procesar_subida(cloud_event) -> None:
     destino_nombre = calcular_destino(carpeta, nombre_archivo, existentes)
 
     destino = bucket.blob(destino_nombre)
-    destino.upload_from_string(
-        salida,
-        content_type=MIME_SALIDA,
-        custom_metadata={"pipeline": "done"},
-    )
+    # google-cloud-storage 3.x: los metadatos se setean en el blob ANTES
+    # del upload (upload_from_string no acepta kwarg de metadatos).
+    destino.metadata = {"pipeline": "done"}
+    destino.upload_from_string(salida, content_type=MIME_SALIDA)
     logger.info(
         "Procesado %s → %s (%d bytes)", nombre, destino_nombre, len(salida)
     )

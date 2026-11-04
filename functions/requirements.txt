@@ -1,5 +1,7 @@
 # Backend de la spec 006 (image-pipeline) — Cloud Function runtime Python.
-functions-framework>=4.0
+functions-framework>=3.0
+# El discovery de firebase deploy solo reconoce funciones decoradas con el SDK
+firebase-functions>=0.6.0
 google-cloud-storage>=2.14
 Pillow>=11.0
 # FR-6: conversión de HEIC/HEIF

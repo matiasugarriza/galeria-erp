@@ -33,6 +33,8 @@ coverage/
 __pycache__/
 *.pyc
 .pytest_cache/
+venv/
+.venv/
 
 # Registro de skills local (contiene rutas absolutas del usuario - no versionar)
 .atl/

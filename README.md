@@ -65,7 +65,7 @@ functions/                    # Backend Python (fuera de src/ — Cláusula I)
 ├── naming.py                 # sanitizar / calcular_destino
 ├── main.py                   # Handler onFinalize (FR-25)
 ├── requirements.txt
-└── tests/                    # 26 tests pytest
+└── tests/                    # 30 tests pytest
 
 specs/                        # Specs 001–006 (español, escenarios verbatim)
 storage.rules                 # Reglas de Storage (propuesta — ver Estado)
@@ -147,13 +147,13 @@ Props completas en [`src/types/gallery.ts`](./src/types/gallery.ts) (`ImageGalle
 # dependencias (una vez)
 pip install -r functions/requirements.txt
 
-# tests del backend (26 pytest)
+# tests del backend (30 pytest)
 python -m pytest functions/tests
 ```
 
 Flujo: subida → evento `onFinalize` → `ya_procesado` (FR-25) → recorte/lienzo 4:3 → JPEG sRGB calidad 90 (fallback 60 si supera 300 KB) → nombre convencionado `{carpeta}/{código}[_N].jpg` → marcado `pipeline=done`. `pillow-heif` habilita conversión de HEIC/HEIF (FR-6); `rembg` es opcional bajo `USAR_REMBG=true`.
 
-**Estado del despliegue (T010):** pendiente. Requiere plan **Blaze** en el proyecto Firebase y permisos de despliegue (el despliegue falla con 403 en `serviceusage` usando la service account actual). Ver `specs/006-image-pipeline/tasks.md`.
+**Estado del despliegue (T010):** ✅ **desplegada y verificada E2E (2026-11-04).** La función `procesar_subida` corre en Cloud Functions 2.º gen (python312, `us-east1`) y una subida nueva termina en JPEG sRGB sin EXIF con el nombre convencionado. Detalle completo en `specs/006-image-pipeline/tasks.md` (T010).
 
 ---
 
@@ -163,14 +163,14 @@ Flujo: subida → evento `onFinalize` → `ya_procesado` (FR-25) → recorte/lie
 
 - Las reglas **vivas** del bucket difieren de las del repo (hoy `migradas/` es lectura pública y el resto exige sesión).
 - La app **no usa `firebase/auth`**, así que desplegar las reglas tal cual bloquearía la demo.
-- Decisión pendiente: ajustar las reglas al modelo de sesión real **antes** de `firebase deploy --only storage`.
+- **Decisión (2026-11-04):** no publicarlas aún — mantener las reglas vivas mientras la app no use `firebase/auth` (publicarlas bloquearía la demo). Ajustarlas al modelo de sesión real antes de un futuro `firebase deploy --only storage`.
 
 ---
 
 ## 🧪 Tests
 
 - **Frontend:** 28 tests Vitest junto a cada componente (callbacks, estados, validaciones, costura de filtros). `npm.cmd run test`
-- **Backend:** 26 tests pytest (naming, pipeline, calidad determinista monkeypatcheando `_guardar_jpeg`). `python -m pytest functions/tests`
+- **Backend:** 30 tests pytest (naming, pipeline, calidad determinista monkeypatcheando `_guardar_jpeg`). `python -m pytest functions/tests`
 - **DoD:** suite verde + `tsc --noEmit` sin errores + UI mobile-first con Tailwind v4 + sin dependencias nuevas fuera del stack.
 
 ---
