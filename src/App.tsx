@@ -22,7 +22,7 @@ export default function App() {
           Modo ERP (plugin con props)
         </h2>
         <ImageGallery
-          filterTag="productos"
+          filterTag="migradas"
           onSelectImage={(image) => setSelected(image)}
           onUploadSuccess={(url) => setLastUploadUrl(url)}
         />

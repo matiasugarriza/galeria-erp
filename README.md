@@ -68,7 +68,7 @@ functions/                    # Backend Python (fuera de src/ — Cláusula I)
 └── tests/                    # 30 tests pytest
 
 specs/                        # Specs 001–006 (español, escenarios verbatim)
-storage.rules                 # Reglas de Storage (propuesta — ver Estado)
+storage.rules                 # Reglas de Storage (públicas, desplegadas — ver Estado)
 firebase.json                 # Config de deploy (functions + storage)
 ```
 
@@ -108,7 +108,7 @@ VITE_FIREBASE_APP_ID=
 npm.cmd run dev        # servidor de desarrollo (Vite)
 ```
 
-Abrí la URL que imprime Vite (por defecto `http://localhost:5173`). Verás dos secciones: **Modo Standalone** y **Modo ERP** (plugin con `filterTag="productos"` y callbacks).
+Abrí la URL que imprime Vite (por defecto `http://localhost:5173`). Verás dos secciones: **Modo Standalone** (lista la raíz del bucket) y **Modo ERP** (plugin con `filterTag="migradas"` — la carpeta con las imágenes migradas — y callbacks).
 
 ### 4. Scripts disponibles
 
@@ -159,11 +159,11 @@ Flujo: subida → evento `onFinalize` → `ya_procesado` (FR-25) → recorte/lie
 
 ## 🔐 Reglas de Storage
 
-[`storage.rules`](./storage.rules) es una **propuesta** con validaciones de tamaño (10 MB) y tipo MIME. Estado actual:
+[`storage.rules`](./storage.rules) define el acceso al bucket con validaciones de tamaño (10 MB) y tipo MIME. Estado actual:
 
-- Las reglas **vivas** del bucket difieren de las del repo (hoy `migradas/` es lectura pública y el resto exige sesión).
-- La app **no usa `firebase/auth`**, así que desplegar las reglas tal cual bloquearía la demo.
-- **Decisión (2026-11-04):** no publicarlas aún — mantener las reglas vivas mientras la app no use `firebase/auth` (publicarlas bloquearía la demo). Ajustarlas al modelo de sesión real antes de un futuro `firebase deploy --only storage`.
+- **Desplegadas el 2026-11-04 con acceso público** (lectura libre; escritura y borrado libres con validación MIME/10 MB), por decisión del usuario para la demo: la app no usa `firebase/auth` y las reglas anteriores devolvían `storage/unauthorized`, dejando la galería sin imágenes.
+- La Cloud Function del pipeline **bypasea** estas reglas (Admin SDK), así que el backend no depende de ellas.
+- ⚠️ **Antes de producción:** reintroducir autenticación (`request.auth != null`) según el modelo de sesión real del ERP — decisión todavía pendiente.
 
 ---
 

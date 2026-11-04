@@ -33,5 +33,5 @@ El usuario con permisos de edición puede eliminar imágenes de la galería. La 
 
 ## Fuera de Alcance
 
-* Las reglas de seguridad del bucket a nivel servidor: se entregan como propuesta desplegable en [`storage.rules`](../../storage.rules) (decisión resuelta del 2026-10-26).
+* Las reglas de seguridad del bucket a nivel servidor: se entregan como propuesta desplegable en [`storage.rules`](../../storage.rules) (decisión resuelta del 2026-10-26; actualizadas y desplegadas con acceso público el 2026-11-04 para la demo — ver README «Reglas de Storage»).
 * Restricciones de permisos del modo ERP (feature [`004-erp-integration`](../004-erp-integration/spec.md)).

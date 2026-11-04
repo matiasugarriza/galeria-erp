@@ -1,11 +1,16 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Propuesta de reglas de seguridad para el bucket de la Galería de Imágenes
-// (decisión resuelta del 2026-10-26 — plan.md, decisión abierta 1).
+// Reglas de seguridad del bucket de la Galería de Imágenes
 //
-// ⚠️ ARCHIVO PROPUESTO: revisa y ajusta las condiciones de autenticación al
-//    modelo de sesión real de tu ERP antes de desplegar.
+// Decisión del 2026-11-04 (demo): acceso PÚBLICO — lectura libre y
+// escritura/borrado libres con validación de MIME y tamaño, para que la
+// demo funcione sin sesión (la app no usa firebase/auth). Responde a la
+// incidencia storage/unauthorized que dejaba la galería sin imágenes.
+//
+// ⚠️ ANTES DE PRODUCCIÓN: reintroducir `request.auth != null` (u otro modelo
+//    de sesión) según el modelo real del ERP — decisión abierta 1 de
+//    plan.md (2026-10-26).
 //
 // Despliegue: firebase deploy --only storage
 //             (o pegando el contenido en Consola de Firebase → Storage → Reglas)
@@ -15,35 +20,27 @@ rules_version = '2';
 //   reglas: el procesamiento en backend no depende de los permisos de cliente.
 // - La validación de tamaño (10 MB) en cliente y aquí es una doble defensa;
 //   el techo definitivo de 300 KB lo garantiza el pipeline de la feature 006.
+// - En delete no existe request.resource, por eso create/update y delete
+//   van en reglas separadas.
 // ═══════════════════════════════════════════════════════════════════════════
 
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // Lectura: solo usuarios autenticados (la galería y el plugin ERP operan
-    // con sesión iniciada; getDownloadURL funciona bajo esta regla).
     match /{allPaths=**} {
-      allow read: if request.auth != null;
-    }
 
-    // Escritura de imágenes nuevas (subidas desde el complemento):
-    // - usuario autenticado
-    // - tipo MIME de imagen admitido por el pipeline (feature 006: la salida
-    //   final es siempre image/jpeg, pero la entrada acepta los formatos
-    //   soportados que la Cloud Function convierte)
-    // - tamaño máximo 10 MB (validación duplicada con el cliente)
-    // - dentro de una carpeta de contexto de primer nivel (ej. productos/,
-    //   facturas/, avatares/) — refuerza la convención {carpeta}/{código}[_N].jpg
-    match /{carpeta}/{archivo} {
-      allow create, update: if request.auth != null
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif|tiff|gif|bmp)')
-        && !carpeta.matches('\\.?.*'); // sin carpetas ocultas ni vacías
+      // Lectura pública: la galería (modo standalone y modo ERP) lista y
+      // genera URLs de descarga sin sesión.
+      allow read: if true;
 
-      // Borrado: usuario autenticado (feature 005; la confirmación en el
-      // modal de diálogo es responsabilidad del componente).
-      // En delete no existe request.resource, por eso se separa de create/update.
-      allow delete: if request.auth != null;
+      // Escritura pública validada: solo imágenes, máximo 10 MB.
+      // Cubre raíz (subidas del modo standalone) y carpetas de contexto
+      // (ej. migradas/, productos/) — convención {carpeta}/{archivo}[_N].jpg.
+      allow create, update: if request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif|tiff|gif|bmp)');
+
+      // Borrado público (feature 005; la confirmación en el modal de
+      // diálogo es responsabilidad del componente).
+      allow delete: if true;
     }
   }
 }

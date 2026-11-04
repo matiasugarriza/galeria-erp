@@ -25,7 +25,7 @@ Todas las imágenes del bucket cumplen el contrato de la feature `image-pipeline
 * **Testing:** Vitest con mocks de Firebase Storage; se ejecuta con `npm run test`.
 * **Modo de entrega:** la galería se empaqueta como módulo exportable (`src/index.ts`) y a la vez corre como app standalone.
 * **Procesamiento de imágenes:** el pipeline de la feature 006 corre en el proceso batch (Python/Pillow) **y como procesamiento en servidor** sobre las subidas nuevas del complemento: Cloud Functions de Firebase (runtime Python + Pillow, trigger `onFinalize`), decisión del usuario del 2026-10-23. Se reutiliza la lógica del batch para fidelidad total, incluido `rembg` opcional.
-* **Reglas de seguridad:** se entrega [`storage.rules`](storage.rules) en la raíz del repo como propuesta desplegable (lectura autenticada; escritura con validación de tipo y 10 MB; borrado autenticado).
+* **Reglas de seguridad:** se entrega [`storage.rules`](storage.rules) en la raíz del repo como propuesta desplegable (lectura autenticada; escritura con validación de tipo y 10 MB; borrado autenticado). *(Actualización 2026-11-04: por decisión del usuario la demo pasa a acceso público y las reglas quedaron rediseñadas y desplegadas — ver README «Reglas de Storage».)*
 * **Skills aplicables:** según la matriz de [`skills.md`](skills.md), cada feature declara sus skills en la sección *Orden de Implementación*.
 
 ## Verificación de Constitución (Constitution Check)

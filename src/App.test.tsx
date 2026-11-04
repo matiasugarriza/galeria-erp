@@ -18,17 +18,17 @@ const standaloneItem: ImageItem = {
 }
 
 const erpItem: ImageItem = {
-  id: 'productos/CH-999.jpg',
+  id: 'migradas/CH-999.jpg',
   name: 'CH-999.jpg',
   url: 'https://example.com/ch-999.jpg',
-  fullPath: 'productos/CH-999.jpg',
+  fullPath: 'migradas/CH-999.jpg',
   createdAt: '2026-01-02T00:00:00Z',
 }
 
 describe('App (demo dual-mode, spec 004 T008)', () => {
   it('opera el mismo código base en modo standalone y modo ERP con callbacks (T008, FR-1)', async () => {
     vi.mocked(listImages).mockImplementation((tag) =>
-      Promise.resolve(tag === 'productos' ? [erpItem] : [standaloneItem]),
+      Promise.resolve(tag === 'migradas' ? [erpItem] : [standaloneItem]),
     )
     render(<App />)
 
@@ -39,6 +39,6 @@ describe('App (demo dual-mode, spec 004 T008)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Seleccionar imagen CH-999.jpg' }))
 
     expect(await screen.findByText(/Seleccionada: CH-999\.jpg/)).toBeTruthy()
-    expect(screen.getByText(/productos\/CH-999\.jpg/)).toBeTruthy()
+    expect(screen.getByText(/migradas\/CH-999\.jpg/)).toBeTruthy()
   })
 })

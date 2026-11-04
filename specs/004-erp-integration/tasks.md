@@ -21,5 +21,5 @@
 
 ## Fase 3 — Cierre
 
-* [x] **T008** Demo en modo ERP en `App.tsx` que embebe la galería pasando `filterTag` y los callbacks, comprobando que el mismo código base opera en ambos modos (Cláusula de doble modo). ✅ `App.tsx` renderiza dos secciones: **Modo Standalone** (`<ImageGallery />` sin props) y **Modo ERP** (`filterTag="productos"` + `onSelectImage`/`onUploadSuccess` con estado visible en `role="status"`); test `App.test.tsx` verifica ambos headings y la selección reflejada en el padre.
+* [x] **T008** Demo en modo ERP en `App.tsx` que embebe la galería pasando `filterTag` y los callbacks, comprobando que el mismo código base opera en ambos modos (Cláusula de doble modo). ✅ `App.tsx` renderiza dos secciones: **Modo Standalone** (`<ImageGallery />` sin props) y **Modo ERP** (`filterTag="productos"` + `onSelectImage`/`onUploadSuccess` con estado visible en `role="status"`); test `App.test.tsx` verifica ambos headings y la selección reflejada en el padre. *(2026-11-04: la sección ERP apunta ahora a `migradas/`, la carpeta con las imágenes reales del bucket; el test se actualizó en consecuencia.)*
 * [x] **T009** Verificación: `npm run test` en verde y build/typecheck sin errores. ✅ **28/28 tests** · `tsc --noEmit` limpio · `vite build` OK (293.35 kB / 91.85 kB gzip).

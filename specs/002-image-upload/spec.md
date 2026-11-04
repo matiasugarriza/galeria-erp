@@ -47,4 +47,4 @@ El componente debe permitir cargar imágenes a Firebase Storage mediante arrastr
 
 * Restricciones de permisos por `readOnly` en el resto de la UI (feature [`004-erp-integration`](../004-erp-integration/spec.md)).
 * Visualización base de la grilla (feature [`001-gallery-view`](../001-gallery-view/spec.md)).
-* Las reglas de seguridad del bucket a nivel servidor: se entregan como propuesta desplegable en [`storage.rules`](../../storage.rules) (decisión resuelta del 2026-10-26).
+* Las reglas de seguridad del bucket a nivel servidor: se entregan como propuesta desplegable en [`storage.rules`](../../storage.rules) (decisión resuelta del 2026-10-26; actualizadas y desplegadas con acceso público el 2026-11-04 para la demo — ver README «Reglas de Storage»).
