@@ -1,6 +1,7 @@
 """Pruebas del pipeline de formato (spec 006, T009): invariantes en RAM."""
 import io
 import logging
+import uuid
 
 from PIL import Image
 
@@ -17,8 +18,8 @@ def _cerca(pixel, esperado, tolerancia=8) -> bool:
     return all(abs(a - b) <= tolerancia for a, b in zip(pixel, esperado))
 
 
-def test_salida_jpeg_rgb_srgb_progresivo_sin_exif_y_orientada():
-    """FR-1 a FR-5: JPEG/RGB/sRGB, progresivo, EXIF corregido y descartado."""
+def test_salida_webp_rgb_srgb_sin_exif_y_orientada():
+    """FR-14 (spec 007): WebP/RGB/sRGB, EXIF corregido y descartado."""
     entrada = Image.new("RGB", (400, 300), (255, 255, 255))
     entrada.paste((220, 30, 30), (0, 0, 40, 40))
     exif = Image.Exif()
@@ -28,11 +29,11 @@ def test_salida_jpeg_rgb_srgb_progresivo_sin_exif_y_orientada():
 
     salida = pipeline.procesar_imagen(buffer.getvalue())
 
-    assert salida[:2] == b"\xff\xd8"  # SOI JPEG
-    assert b"\xff\xc2" in salida  # SOF2 = JPEG progresivo (FR-3)
+    assert salida[:4] == b"RIFF"  # contenedor RIFF
+    assert salida[8:12] == b"WEBP"  # marca WebP
     with Image.open(io.BytesIO(salida)) as resultado:
-        assert resultado.format == "JPEG"  # FR-1
-        assert resultado.mode == "RGB"  # FR-2
+        assert resultado.format == "WEBP"  # FR-14
+        assert resultado.mode == "RGB"  # FR-2 (spec 006)
         assert resultado.info.get("icc_profile")  # FR-4: perfil sRGB embebido
         assert len(resultado.getexif()) == 0  # FR-5: sin metadatos
         # La orientación 6 colocó el cuadro rojo a la derecha (si no se
@@ -44,12 +45,35 @@ def test_salida_jpeg_rgb_srgb_progresivo_sin_exif_y_orientada():
         assert min(fila) > resultado.width // 2
 
 
-def test_rgba_se_convierte_a_rgb():
-    """FR-2: imágenes RGBA terminan en RGB."""
+def test_rgba_conserva_la_transparencia():
+    """FR-14 (spec 007): un PNG con alfa sigue siendo RGBA y el relleno del
+    lienzo 4:3 es transparente, no blanco."""
     entrada = Image.new("RGBA", (60, 40), (10, 120, 200, 128))
     salida = pipeline.procesar_imagen(_png(entrada))
     with Image.open(io.BytesIO(salida)) as resultado:
-        assert resultado.mode == "RGB"
+        assert resultado.format == "WEBP"
+        assert resultado.mode == "RGBA"
+        # Relleno del lienzo 4:3 (60×45) completamente transparente.
+        assert resultado.getpixel((0, 0))[3] == 0
+        centro = resultado.getpixel((30, 20))
+        assert centro[3] == 128
+        assert _cerca(centro[:3], (10, 120, 200), 10)
+
+
+def test_procesar_imagen_usa_calidad_webp_85(monkeypatch):
+    """FR-14 (spec 007): la salida principal se guarda en WebP calidad 85."""
+    capturado: dict = {}
+
+    def _guardar_falso(imagen, calidad):
+        capturado["calidad"] = calidad
+        return b"webp"
+
+    monkeypatch.setattr(pipeline, "_guardar_webp", _guardar_falso)
+
+    pipeline.procesar_imagen(_png(Image.new("RGB", (80, 60), (10, 20, 30))))
+
+    assert capturado["calidad"] == 85
+    assert pipeline.CALIDAD_WEBP == 85
 
 
 def test_no_agrandar_foto_chica():
@@ -57,6 +81,7 @@ def test_no_agrandar_foto_chica():
     entrada = Image.new("RGB", (531, 398), (30, 90, 160))
     salida = pipeline.procesar_imagen(_png(entrada))
     with Image.open(io.BytesIO(salida)) as resultado:
+        assert resultado.format == "WEBP"
         assert resultado.size == (531, 398)
 
 
@@ -157,3 +182,89 @@ def test_proteccion_anti_reprocesamiento():
     assert pipeline.ya_procesado(None) is False
     assert pipeline.ya_procesado({}) is False
     assert pipeline.ya_procesado({"pipeline": "running"}) is False
+
+
+# ---------------------------------------------------------------------------
+# Miniaturas WebP (spec 007, FR-4)
+# ---------------------------------------------------------------------------
+
+
+def _webp(imagen: Image.Image, calidad: int = 85) -> bytes:
+    buffer = io.BytesIO()
+    imagen.save(buffer, format="WEBP", quality=calidad)
+    return buffer.getvalue()
+
+
+def test_generar_miniatura_es_webp_exactamente_300x225():
+    """FR-4 (spec 007): la salida del pipeline (lienzo 4:3) se redimensiona
+    a 300×225 exactos en WebP, sin volver a tocar el objeto."""
+    fuente = _webp(Image.new("RGB", (2400, 1800), (30, 60, 90)))
+    miniatura = pipeline.generar_miniatura(fuente)
+
+    assert miniatura[:4] == b"RIFF"
+    assert miniatura[8:12] == b"WEBP"
+    with Image.open(io.BytesIO(miniatura)) as resultado:
+        assert resultado.format == "WEBP"
+        assert resultado.size == (300, 225)
+        assert resultado.mode == "RGB"
+
+
+def test_generar_miniatura_conserva_el_alfa():
+    """FR-4/FR-14 (spec 007): la miniatura WebP de un PNG transparente
+    conserva el canal alfa."""
+    fuente = _webp(Image.new("RGBA", (1200, 900), (255, 0, 0, 0)))
+    miniatura = pipeline.generar_miniatura(fuente)
+
+    with Image.open(io.BytesIO(miniatura)) as resultado:
+        assert resultado.mode == "RGBA"
+        assert resultado.getpixel((0, 0))[3] == 0
+
+
+def test_generar_miniatura_clampa_a_300x225_si_la_fuente_no_es_43():
+    """La migración recorre imágenes existentes: el tamaño de salida es
+    exacto 300×225 aunque la fuente no respete el lienzo 4:3."""
+    fuente = _webp(Image.new("RGB", (640, 480), (200, 100, 10)))
+    with Image.open(io.BytesIO(pipeline.generar_miniatura(fuente))) as resultado:
+        assert resultado.size == (300, 225)
+
+
+def test_generar_miniatura_usa_calidad_80(monkeypatch):
+    """FR-4 (spec 007): WebP calidad 80 al guardar la miniatura."""
+    capturado: dict = {}
+
+    def _guardar_falso(imagen, calidad):
+        capturado["calidad"] = calidad
+        buffer = io.BytesIO()
+        imagen.save(buffer, format="WEBP", quality=calidad)
+        return buffer.getvalue()
+
+    monkeypatch.setattr(pipeline, "_guardar_webp", _guardar_falso)
+
+    pipeline.generar_miniatura(_webp(Image.new("RGB", (800, 600), (10, 100, 200))))
+
+    assert capturado["calidad"] == 80
+    assert pipeline.MINIATURA_CALIDAD == 80
+    assert (pipeline.MINIATURA_ANCHO, pipeline.MINIATURA_ALTO) == (300, 225)
+
+
+def test_metadata_objeto_lleva_token_cache_y_marca_anti_loop():
+    """FR-6 (spec 007): token uuid4 descargable, cacheControl de un año y
+    pipeline=done para cerrar el anti-loop."""
+    metadata = pipeline.metadata_objeto("token-fijo")
+
+    assert metadata == {
+        "pipeline": "done",
+        "firebaseStorageDownloadTokens": "token-fijo",
+        "cacheControl": "public, max-age=31536000",
+    }
+    assert pipeline.CACHE_CONTROL == "public, max-age=31536000"
+
+
+def test_nuevo_token_es_uuid4_y_cambia_en_cada_llamada():
+    """FR-6: cada subida (principal y miniatura) usa su propio token uuid4."""
+    primero = pipeline.nuevo_token()
+    segundo = pipeline.nuevo_token()
+
+    assert uuid.UUID(primero).version == 4
+    assert uuid.UUID(segundo).version == 4
+    assert primero != segundo

@@ -3,6 +3,8 @@ functions-framework>=3.0
 # El discovery de firebase deploy solo reconoce funciones decoradas con el SDK
 firebase-functions>=0.6.0
 google-cloud-storage>=2.14
+# FR-1/FR-16 (spec 007): documentos de la colección `fotos` desde el backend.
+google-cloud-firestore>=2.14
 Pillow>=11.0
 # FR-6: conversión de HEIC/HEIF
 pillow-heif>=0.18

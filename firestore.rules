@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Reglas de seguridad de Firestore — colección `fotos` (spec 007)
+//
+// La grilla lee la colección sin sesión (lectura pública). La escritura la
+// hace exclusivamente la Cloud Function con el Admin SDK, que bypasea estas
+// reglas; el cliente nunca escribe.
+//
+// Despliegue: firebase deploy --only firestore
+// ═══════════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /fotos/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
