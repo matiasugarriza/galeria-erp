@@ -108,3 +108,14 @@ Para las subidas del complemento no existe "fila" de origen, por lo que aplica l
 * Ejecución del pipeline dentro del navegador/complemento web: la normalización de subidas nuevas es responsabilidad del procesamiento en servidor (Cloud Function `onFinalize`), no del cliente. El componente solo valida, sube y refresca la vista.
 * Instalación y despliegue del proceso batch (script Python, modelo `rembg`, variables de entorno) dentro de este repositorio.
 * Escritura de archivos en disco: el proceso es íntegramente en memoria (`io.BytesIO`).
+
+## Enmienda (spec 007, 2026-11-05)
+
+La [spec 007](../007-gallery-performance/spec.md) modifica el pipeline de esta spec:
+
+* **Salida principal en WebP calidad 85** (antes JPEG q90 con fallback a 60 por peso ≤300 KB): conserva el canal alfa de los PNG de Corel y pesa menos. Los helpers JPEG de `ajustar_calidad` se conservan como utilidad aislada con sus pruebas.
+* **Miniatura WebP 300×225 (q80)** en `thumbs/{ruta-sin-ext}.webp`, generada desde los bytes finales en memoria, con `firebaseStorageDownloadTokens` y `cacheControl` de un año.
+* **Documento en la colección `fotos` de Firestore** por cada imagen procesada (esquema preparado para IA) y **trigger de borrado** que lo elimina junto con la miniatura.
+* **Migración idempotente** de las imágenes existentes (`functions/migrar_galeria.py`).
+
+El resto de los requisitos, invariantes y criterios de esta spec siguen vigentes.
