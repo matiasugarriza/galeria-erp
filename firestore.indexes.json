@@ -1,19 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "fotos",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "codigoBusqueda",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "ASCENDING"
-        }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }
