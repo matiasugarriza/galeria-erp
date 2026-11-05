@@ -165,7 +165,7 @@ python functions/migrar_galeria.py --credentials <ruta-al-json-de-la-SA>
 
 Flujo de una subida: el cliente comprime (≤1600 px, ≤1 MB) → sube con `cacheControl` de un año → evento `onFinalize` → `ya_procesado` (FR-25) + guarda `thumbs/` → recorte/lienzo 4:3 (relleno transparente si el PNG tiene alfa) → **WebP calidad 85** → nombre convencionado `{carpeta}/{código}[_N].webp` → **miniatura WebP 300×225 (q80)** en `thumbs/` → metadata `pipeline=done`, `firebaseStorageDownloadTokens` y `cacheControl` → **documento `fotos/{carpeta__nombre}`** con URL y thumbUrl resueltas. Al borrar un objeto, `on_object_deleted` elimina su documento y su miniatura.
 
-**Estado del despliegue de la spec 007:** ⚠️ **pendiente** (2026-11-05). El código está implementado y testeado localmente (52 + 87 tests verdes), pero falta: habilitar Firestore en el proyecto, desplegar `functions` + reglas/índices de Firestore y correr la migración de las 200+ imágenes existentes. La sesión de Firebase CLI venció (`firebase login --reauth`). La función de la spec 006 sigue desplegada y operativa (python312, `us-east1`).
+**Estado del despliegue de la spec 007:** ✅ **desplegada y migrada (2026-11-05).** Firestore quedó habilitado con la base `default` en `southamerica-east1`; `procesar_subida` (actualizada) y `on_object_deleted` (nueva) corren en 2.º gen (python312, `us-east1`), con reglas e índices liberados. La migración procesó **1.646 objetos**: 1.646 miniaturas WebP y 1.646 documentos, sin errores. Verificado E2E sin sesión: listado público, miniatura WebP con caché de un año, foto grande accesible, búsqueda por prefijo ordenada y escritura cliente denegada (403).
 
 ---
 
