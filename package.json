@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "browser-image-compression": "^2.0.2",
     "firebase": "^13.1.0",
     "lucide-react": "^1.48.0",
     "react": "^19.3.0",

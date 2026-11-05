@@ -1,12 +1,20 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { uploadImage } from '../../services/storageService'
+import { compressImage, uploadImage } from '../../services/storageService'
 import { UploadModal } from './UploadModal'
 
-vi.mock('../../services/storageService', () => ({
-  listImages: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  compressImage: vi.fn(),
   uploadImage: vi.fn(),
+  deleteImage: vi.fn(),
 }))
 
+vi.mock('../../services/storageService', () => ({
+  compressImage: mocks.compressImage,
+  uploadImage: mocks.uploadImage,
+  deleteImage: mocks.deleteImage,
+}))
+
+const compressImageMock = vi.mocked(compressImage)
 const uploadImageMock = vi.mocked(uploadImage)
 
 const baseProps = {
@@ -15,87 +23,122 @@ const baseProps = {
   onUploaded: vi.fn(),
 }
 
-function validFile(name = 'foto.jpg'): File {
-  return new File(['contenido'], name, { type: 'image/jpeg' })
+function archivo(nombre = 'foto.jpg', tipo = 'image/jpeg'): File {
+  return new File(['contenido'], nombre, { type: tipo })
+}
+
+function elegir(archivoElegido: File): void {
+  fireEvent.change(screen.getByLabelText('Seleccionar archivo de imagen'), {
+    target: { files: [archivoElegido] },
+  })
 }
 
 describe('UploadModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
+    compressImageMock.mockImplementation((file) => Promise.resolve(file))
   })
 
-  it('bloquea formatos no soportados y muestra los formatos permitidos (AC2, FR-4)', () => {
+  it('acepta JPG, PNG, WebP y HEIC en el input (FR-14)', () => {
     render(<UploadModal {...baseProps} />)
 
-    fireEvent.change(screen.getByLabelText('Seleccionar archivo de imagen'), {
-      target: { files: [new File(['x'], 'documento.pdf', { type: 'application/pdf' })] },
-    })
+    const input = screen.getByLabelText('Seleccionar archivo de imagen')
+    expect(input.getAttribute('accept')).toMatch(/\.jpg/)
+    expect(input.getAttribute('accept')).toMatch(/\.png/)
+    expect(input.getAttribute('accept')).toMatch(/\.webp/)
+    expect(input.getAttribute('accept')).toMatch(/\.heic/)
+  })
 
-    const alert = screen.getByRole('alert')
-    expect(alert.textContent).toMatch(/formatos permitidos/i)
-    expect(alert.textContent).toMatch(/\.jpg.*\.png.*\.webp/i)
+  it('bloquea formatos no soportados con un mensaje visible (FR-14)', () => {
+    render(<UploadModal {...baseProps} />)
+
+    elegir(new File(['x'], 'documento.pdf', { type: 'application/pdf' }))
+
+    const alerta = screen.getByRole('alert')
+    expect(alerta.textContent).toMatch(/formatos permitidos/i)
+    expect(alerta.textContent).toMatch(/\.jpg.*\.png.*\.webp.*\.heic/i)
+    expect(compressImageMock).not.toHaveBeenCalled()
     expect(uploadImageMock).not.toHaveBeenCalled()
   })
 
-  it('bloquea archivos mayores a 10 MB sin iniciar la subida (FR-5)', () => {
+  it('bloquea archivos mayores a 10 MB sin comprimir ni subir (FR-7)', () => {
     render(<UploadModal {...baseProps} />)
 
-    const big = new File([new ArrayBuffer(10 * 1024 * 1024 + 1)], 'grande.jpg', {
-      type: 'image/jpeg',
-    })
-    fireEvent.change(screen.getByLabelText('Seleccionar archivo de imagen'), {
-      target: { files: [big] },
-    })
+    elegir(new File([new ArrayBuffer(10 * 1024 * 1024 + 1)], 'grande.heic', { type: 'image/heic' }))
 
     expect(screen.getByRole('alert').textContent).toMatch(/10 MB/i)
+    expect(compressImageMock).not.toHaveBeenCalled()
     expect(uploadImageMock).not.toHaveBeenCalled()
   })
 
-  it('muestra la barra de progreso 0-100 durante la subida y notifica al completarse (AC1, FR-2)', async () => {
-    let resolveUpload: (url: string) => void = () => {}
-    uploadImageMock.mockImplementation((_file, _folder, onProgress) => {
-      onProgress(42)
-      return new Promise<string>((resolve) => {
-        resolveUpload = resolve
+  it('acepta HEIC comprimiendo antes de subir (FR-14)', async () => {
+    uploadImageMock.mockResolvedValue(undefined)
+    render(<UploadModal {...baseProps} />)
+
+    const heic = archivo('foto.heic', 'image/heic')
+    elegir(heic)
+
+    await waitFor(() => expect(uploadImageMock).toHaveBeenCalledTimes(1))
+    expect(compressImageMock).toHaveBeenCalledWith(heic)
+  })
+
+  it('comprime antes de subir, muestra el progreso y notifica al completar (FR-7, FR-8)', async () => {
+    const comprimido = new File(['comprimido'], 'foto.jpg', { type: 'image/jpeg' })
+    compressImageMock.mockResolvedValue(comprimido)
+    let resolver: () => void = () => {}
+    uploadImageMock.mockImplementation((_file, onProgress) => {
+      onProgress?.(42)
+      return new Promise<void>((resolve) => {
+        resolver = resolve
       })
     })
     const onUploaded = vi.fn()
-    render(<UploadModal {...baseProps} onUploaded={onUploaded} />)
+    const onUploadStart = vi.fn()
+    const onClose = vi.fn()
+    render(
+      <UploadModal
+        {...baseProps}
+        onClose={onClose}
+        onUploaded={onUploaded}
+        onUploadStart={onUploadStart}
+      />,
+    )
 
-    fireEvent.change(screen.getByLabelText('Seleccionar archivo de imagen'), {
-      target: { files: [validFile()] },
-    })
+    const original = archivo('foto.jpg')
+    elegir(original)
 
-    const bar = await screen.findByRole('progressbar', { name: 'Progreso de subida' })
-    expect(bar.getAttribute('aria-valuenow')).toBe('42')
+    const barra = await screen.findByRole('progressbar', { name: 'Progreso de subida' })
+    await waitFor(() => expect(barra.getAttribute('aria-valuenow')).toBe('42'))
+    expect(onUploadStart).toHaveBeenCalledWith(original)
+    expect(uploadImageMock).toHaveBeenCalledWith(comprimido, expect.any(Function))
 
-    resolveUpload('https://example.com/foto.jpg')
-    await waitFor(() => expect(onUploaded).toHaveBeenCalledTimes(1))
-    expect(baseProps.onClose).toHaveBeenCalledTimes(1)
+    resolver()
+    await waitFor(() => expect(onUploaded).toHaveBeenCalledWith(original))
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('acepta archivos arrastrados a la zona de carga (AC1)', () => {
-    uploadImageMock.mockResolvedValue('https://example.com/foto.jpg')
+  it('acepta archivos arrastrados a la zona de carga (FR-8)', async () => {
+    uploadImageMock.mockResolvedValue(undefined)
     render(<UploadModal {...baseProps} />)
 
     fireEvent.drop(screen.getByLabelText('Zona de carga de archivos'), {
-      dataTransfer: { files: [validFile('arrastrada.webp')] },
+      dataTransfer: { files: [archivo('arrastrada.webp', 'image/webp')] },
     })
 
-    return waitFor(() => expect(uploadImageMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(uploadImageMock).toHaveBeenCalledTimes(1))
   })
 
   it('mantiene el modal abierto y muestra el error cuando la subida falla (Cláusula III)', async () => {
     uploadImageMock.mockRejectedValue(new Error('red caída'))
-    render(<UploadModal {...baseProps} />)
+    const onUploadFailed = vi.fn()
+    render(<UploadModal {...baseProps} onUploadFailed={onUploadFailed} />)
 
-    fireEvent.change(screen.getByLabelText('Seleccionar archivo de imagen'), {
-      target: { files: [validFile()] },
-    })
+    elegir(archivo())
 
-    const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toMatch(/no se pudo subir/i)
+    const alerta = await screen.findByRole('alert')
+    expect(alerta.textContent).toMatch(/no se pudo subir/i)
     expect(screen.getByRole('dialog')).toBeTruthy()
     expect(baseProps.onUploaded).not.toHaveBeenCalled()
+    expect(onUploadFailed).toHaveBeenCalledTimes(1)
   })
 })

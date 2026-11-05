@@ -1,13 +1,20 @@
 import { useRef, useState } from 'react'
 import { UploadCloud, X } from 'lucide-react'
-import { uploadImage } from '../../services/storageService'
+import { compressImage, uploadImage } from '../../services/storageService'
 import type { UploadErrorKind } from '../../types/gallery'
 
-const ALLOWED_EXTENSIONS = ['.jpg', '.png', '.webp']
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.heic']
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 const ERROR_MESSAGES: Record<UploadErrorKind, string> = {
-  format: 'Formato no soportado. Formatos permitidos: .jpg, .png y .webp.',
+  format: 'Formato no soportado. Formatos permitidos: .jpg, .png, .webp y .heic.',
   size: 'Archivo demasiado grande. El tamaño máximo es 10 MB.',
   network: 'No se pudo subir la imagen. Verificá la conexión e intentá de nuevo.',
 }
@@ -15,14 +22,30 @@ const ERROR_MESSAGES: Record<UploadErrorKind, string> = {
 interface UploadModalProps {
   open: boolean
   onClose: () => void
-  /** Carpeta de contexto ERP a la que se sube el archivo (filterTag). */
-  filterTag?: string
-  /** Se invoca tras subir exitosamente con la URL pública de la imagen (FR-6, spec 004). */
-  onUploaded: (url: string) => void
+  /** Se invoca al elegir el archivo, antes de comprimir: sirve para la vista previa local (FR-8). */
+  onUploadStart?: (file: File) => void
+  /** Se invoca tras subir el archivo, todavía sin el documento de Firestore (FR-8). */
+  onUploaded: (file: File) => void
+  /** Se invoca si la subida falla, para retirar la vista previa local. */
+  onUploadFailed?: (file: File) => void
 }
 
-/** Modal de subida: zona drag & drop + selección, validación de formato/tamaño y barra de progreso (spec 002). */
-export function UploadModal({ open, onClose, filterTag, onUploaded }: UploadModalProps) {
+function esFormatoPermitido(file: File): boolean {
+  const extension = `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`
+  return ALLOWED_EXTENSIONS.includes(extension) || ALLOWED_MIME_TYPES.includes(file.type)
+}
+
+/**
+ * Modal de subida: zona drag & drop + selección, validación de formato/tamaño,
+ * compresión en el navegador (FR-7) y barra de progreso.
+ */
+export function UploadModal({
+  open,
+  onClose,
+  onUploadStart,
+  onUploaded,
+  onUploadFailed,
+}: UploadModalProps) {
   const [error, setError] = useState<UploadErrorKind | null>(null)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -33,8 +56,7 @@ export function UploadModal({ open, onClose, filterTag, onUploaded }: UploadModa
   const handleFile = async (file: File) => {
     if (uploading) return
 
-    const extension = `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`
-    if (!ALLOWED_EXTENSIONS.includes(extension)) {
+    if (!esFormatoPermitido(file)) {
       setError('format')
       return
     }
@@ -46,11 +68,22 @@ export function UploadModal({ open, onClose, filterTag, onUploaded }: UploadModa
     setError(null)
     setUploading(true)
     setProgress(0)
+    onUploadStart?.(file)
+
     try {
-      const url = await uploadImage(file, filterTag, setProgress)
-      onUploaded(url)
+      // Si el navegador no puede decodificar el archivo (p. ej. HEIC en algunos
+      // navegadores), se sube el original en vez de bloquear la carga.
+      let comprimido = file
+      try {
+        comprimido = await compressImage(file)
+      } catch {
+        comprimido = file
+      }
+      await uploadImage(comprimido, setProgress)
+      onUploaded(file)
       onClose()
     } catch {
+      onUploadFailed?.(file)
       setError('network')
     } finally {
       setUploading(false)
@@ -110,7 +143,9 @@ export function UploadModal({ open, onClose, filterTag, onUploaded }: UploadModa
           >
             Seleccionar archivo
           </button>
-          <p className="text-xs text-gray-500">Formatos permitidos: .jpg, .png, .webp · Máximo 10 MB</p>
+          <p className="text-xs text-gray-500">
+            Formatos permitidos: .jpg, .png, .webp y .heic · Máximo 10 MB
+          </p>
         </div>
 
         {uploading && (

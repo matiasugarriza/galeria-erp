@@ -1,44 +1,55 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { listImages } from './services/storageService'
-import type { ImageItem } from './types/gallery'
+import { fetchGalleryPage } from './services/galleryService'
+import type { GalleryPhoto } from './types/gallery'
 import App from './App'
 
-vi.mock('./services/storageService', () => ({
-  listImages: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  fetchGalleryPage: vi.fn(),
+  compressImage: vi.fn(),
   uploadImage: vi.fn(),
   deleteImage: vi.fn(),
 }))
 
-const standaloneItem: ImageItem = {
-  id: 'avatares/avatar-1.jpg',
-  name: 'avatar-1.jpg',
-  url: 'https://example.com/avatar-1.jpg',
-  fullPath: 'avatares/avatar-1.jpg',
-  createdAt: '2026-01-01T00:00:00Z',
+vi.mock('./services/galleryService', () => ({
+  PAGE_SIZE: 24,
+  fetchGalleryPage: mocks.fetchGalleryPage,
+}))
+vi.mock('./services/storageService', () => ({
+  compressImage: mocks.compressImage,
+  uploadImage: mocks.uploadImage,
+  deleteImage: mocks.deleteImage,
+}))
+
+const foto: GalleryPhoto = {
+  id: 'migradas__CH-999',
+  codigo: 'CH-999',
+  nombre: 'CH-999.png',
+  carpeta: 'migradas',
+  url: 'https://example.com/CH-999.webp',
+  thumbUrl: 'https://example.com/thumbs/CH-999.webp',
+  fullPath: 'migradas/CH-999.webp',
+  vista: 'frente',
+  origen: 'corel',
+  basadaEn: null,
+  estado: 'aprobada',
+  creadoEn: new Date('2026-01-02T00:00:00Z'),
 }
 
-const erpItem: ImageItem = {
-  id: 'migradas/CH-999.jpg',
-  name: 'CH-999.jpg',
-  url: 'https://example.com/ch-999.jpg',
-  fullPath: 'migradas/CH-999.jpg',
-  createdAt: '2026-01-02T00:00:00Z',
-}
+describe('App (harness sólo modo ERP, FR-13)', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    vi.mocked(fetchGalleryPage).mockResolvedValue({ fotos: [foto], cursor: null })
+  })
 
-describe('App (demo dual-mode, spec 004 T008)', () => {
-  it('opera el mismo código base en modo standalone y modo ERP con callbacks (T008, FR-1)', async () => {
-    vi.mocked(listImages).mockImplementation((tag) =>
-      Promise.resolve(tag === 'migradas' ? [erpItem] : [standaloneItem]),
-    )
+  it('monta la galería en modo ERP y lista las fotos elegidas (FR-13)', async () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: 'Modo Standalone' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Modo ERP (plugin con props)' })).toBeTruthy()
-    await screen.findByRole('img', { name: 'CH-999.jpg' })
+    expect(screen.getByRole('heading', { name: 'Galería de Imágenes' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: /modo standalone/i })).toBeNull()
+    await screen.findByRole('img', { name: 'CH-999.png' })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar imagen CH-999.jpg' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Tildar CH-999.png' }))
 
-    expect(await screen.findByText(/Seleccionada: CH-999\.jpg/)).toBeTruthy()
-    expect(screen.getByText(/migradas\/CH-999\.jpg/)).toBeTruthy()
+    expect(await screen.findByText(/Elegidas: CH-999\.png/)).toBeTruthy()
   })
 })

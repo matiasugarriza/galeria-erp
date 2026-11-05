@@ -4,9 +4,8 @@
  */
 export { ImageGallery } from './components/ImageGallery/ImageGallery'
 export type {
+  GalleryPhoto,
   ImageGalleryProps,
-  ImageItem,
-  GalleryFilterState,
   UploadState,
   UploadErrorKind,
 } from './types/gallery'

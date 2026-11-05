@@ -1,45 +1,61 @@
-/** Imagen residente en el bucket. `name`/`fullPath` siguen la convención {carpeta}/{código}[_N].jpg (spec 006). */
-export interface ImageItem {
-  /** Identificador único del objeto en Storage (su fullPath). */
+/** Tipo de vista de una foto del catálogo (spec 007, FR-15). */
+export type GalleryVista = 'frente' | 'espalda' | 'detalle'
+
+/** Origen de la imagen: exportada de Corel o generada/mejorada con IA (spec 007, FR-15). */
+export type GalleryOrigen = 'corel' | 'ia'
+
+/** Estado de aprobación: sólo las aprobadas se pueden tildar para la ficha (FR-11). */
+export type GalleryEstado = 'aprobada' | 'para_revisar'
+
+/**
+ * Foto del catálogo leída del documento `fotos/{carpeta__nombre}` de Firestore
+ * (spec 007, FR-1). Reemplaza a `ImageItem`.
+ */
+export interface GalleryPhoto {
+  /** Id del documento en Firestore (`carpeta__nombre`). */
   id: string
-  /** Nombre del archivo en el bucket (búsqueda y miniatura). */
-  name: string
-  /** URL pública de descarga (getDownloadURL). */
+  /** Código de artículo derivado del nombre del archivo. */
+  codigo: string
+  /** Nombre del archivo procesado (con extensión). */
+  nombre: string
+  /** Carpeta de origen dentro del bucket. */
+  carpeta: string
+  /** URL de la imagen principal (se descarga sólo al abrir el modal). */
   url: string
-  /** Ruta completa en el bucket (usada por deleteObject). */
+  /** URL de la miniatura WebP generada por el pipeline. */
+  thumbUrl: string
+  /** Ruta del objeto principal en Storage (usada por deleteObject). */
   fullPath: string
-  /** Fecha de creación del objeto (timeCreated de los metadatos). */
-  createdAt: string
-  /** Carpeta de contexto ERP: "productos", "facturas", "avatares". */
-  tag?: string
+  /** Vista de la foto. */
+  vista: GalleryVista
+  /** Origen de la foto. */
+  origen: GalleryOrigen
+  /** Id de la foto original cuando la imagen fue generada por IA. */
+  basadaEn: string | null
+  /** Estado de aprobación para la ficha técnica. */
+  estado: GalleryEstado
+  /** Fecha de creación del documento. */
+  creadoEn: Date
 }
 
-/** Estado de una subida en curso (feature 002). */
+/** Estado de una subida en curso. */
 export interface UploadState {
   isUploading: boolean
   /** Progreso 0–100 de uploadBytesResumable. */
   progress: number
 }
 
-/** Estado de los filtros de la galería (feature 003). */
-export interface GalleryFilterState {
-  searchTerm: string
-  filterTag?: string
-}
-
-/** Errores de validación y subida del UploadModal (spec 002). */
+/** Errores de validación y subida del UploadModal. */
 export type UploadErrorKind = 'format' | 'size' | 'network'
 
-/** Props dual-mode del componente raíz (contrato del plugin ERP — plan.md). */
+/** Props del componente raíz expuesto al ERP (contrato del plugin — spec 007). */
 export interface ImageGalleryProps {
-  /** Filtra por carpeta de contexto ERP al momento de listar. */
-  filterTag?: string
-  /** Oculta subida y eliminación cuando es true (modo lectura). */
+  /** Código de artículo con el que la galería arranca filtrada (FR-12). */
+  codigoInicial?: string
+  /** Oculta subida, eliminación y selección cuando es true (modo lectura). */
   readOnly?: boolean
-  /** Se ejecuta al seleccionar una imagen (feature 004). */
-  onSelectImage?: (image: ImageItem) => void
-  /** Se ejecuta tras confirmarse la eliminación (feature 004). */
-  onDeleteImage?: (id: string) => void
-  /** Se ejecuta con la URL de la imagen subida y procesada (feature 004). */
-  onUploadSuccess?: (url: string) => void
+  /** Se ejecuta con las fotos elegidas, en orden de selección (FR-11). */
+  onSelect?: (fotosElegidas: GalleryPhoto[]) => void
+  /** Se ejecuta con la foto real cuando el documento aparece tras la subida (FR-8). */
+  onUploadSuccess?: (foto: GalleryPhoto) => void
 }

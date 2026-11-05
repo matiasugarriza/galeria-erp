@@ -1,80 +1,62 @@
-import {
-  deleteObject,
-  getDownloadURL,
-  getMetadata,
-  getStorage,
-  listAll,
-  ref,
-  uploadBytesResumable,
-  type FirebaseStorage,
-} from 'firebase/storage'
+import imageCompression from 'browser-image-compression'
+import { deleteObject, getStorage, ref, uploadBytesResumable, type FirebaseStorage } from 'firebase/storage'
 import { getFirebaseApp } from '../config/firebase'
-import type { ImageItem } from '../types/gallery'
+import type { GalleryPhoto } from '../types/gallery'
+
+/** Un año de caché en el navegador para las imágenes procesadas (spec 007, FR-6). */
+const CACHE_CONTROL = 'public, max-age=31536000'
 
 function storageInstance(): FirebaseStorage {
   return getStorage(getFirebaseApp())
 }
 
-/** Elimina un objeto del bucket por su fullPath (spec 005, FR-2). Lanza en caso de permiso denegado o archivo inexistente. */
-export async function deleteImage(fullPath: string): Promise<void> {
-  await deleteObject(ref(storageInstance(), fullPath))
+/**
+ * Achica y comprime la imagen en el navegador antes de subirla (FR-7):
+ * 1600 px de lado máximo, 1 MB como tope, en un web worker y conservando el
+ * tipo original para que un PNG de Corel mantenga la transparencia.
+ */
+export async function compressImage(file: File): Promise<File> {
+  return imageCompression(file, {
+    maxWidthOrHeight: 1600,
+    maxSizeMB: 1,
+    useWebWorker: true,
+    ...(file.type ? { fileType: file.type } : {}),
+  })
 }
 
 /**
- * Sube un archivo con progreso reportado como porcentaje 0–100 (spec 002, FR-2).
- * La normalización del archivo (feature 006) la ejecuta el procesamiento en
- * servidor vía Cloud Function `onFinalize`; el componente solo sube y refresca.
+ * Sube el archivo ya comprimido con progreso reportado como porcentaje 0–100.
+ * Fija `cacheControl` de un año para que el navegador no vuelva a descargarlo
+ * (FR-6). La miniatura y el documento de Firestore los escribe la Cloud
+ * Function a partir de esta subida (FR-9).
  */
 export async function uploadImage(
   file: File,
-  folder: string | undefined,
-  onProgress: (percent: number) => void,
-): Promise<string> {
+  onProgress?: (percent: number) => void,
+): Promise<void> {
   const storage = storageInstance()
-  const targetRef = ref(storage, folder ? `${folder}/${file.name}` : file.name)
-  const task = uploadBytesResumable(targetRef, file)
+  const targetRef = ref(storage, file.name)
+  const task = uploadBytesResumable(targetRef, file, {
+    contentType: file.type || 'application/octet-stream',
+    cacheControl: CACHE_CONTROL,
+  })
 
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     task.on(
       'state_changed',
       (snapshot) => {
-        const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
-        onProgress(percent)
+        onProgress?.(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100))
       },
       reject,
-      async () => {
-        try {
-          resolve(await getDownloadURL(task.snapshot.ref))
-        } catch (error) {
-          reject(error)
-        }
-      },
+      () => resolve(),
     )
   })
 }
 
 /**
- * Lista las imágenes del bucket, opcionalmente filtradas por la carpeta de
- * contexto ERP (filterTag → {carpeta}/, spec 003 FR-2).
- *
- * Nota (plan.md, riesgo R2): getMetadata se consulta por objeto para obtener
- * `timeCreated`; aceptable a la escala de una galería.
+ * Elimina el objeto principal de Storage (spec 005 / FR-16). El documento de
+ * Firestore y la miniatura los limpia el trigger `on_object_deleted`.
  */
-export async function listImages(filterTag?: string): Promise<ImageItem[]> {
-  const baseRef = filterTag ? ref(storageInstance(), `${filterTag}/`) : ref(storageInstance())
-  const listing = await listAll(baseRef)
-
-  return Promise.all(
-    listing.items.map(async (itemRef): Promise<ImageItem> => {
-      const [url, metadata] = await Promise.all([getDownloadURL(itemRef), getMetadata(itemRef)])
-      return {
-        id: itemRef.fullPath,
-        name: itemRef.name,
-        url,
-        fullPath: itemRef.fullPath,
-        createdAt: metadata.timeCreated,
-        tag: filterTag,
-      }
-    }),
-  )
+export async function deleteImage(foto: GalleryPhoto): Promise<void> {
+  await deleteObject(ref(storageInstance(), foto.fullPath))
 }
